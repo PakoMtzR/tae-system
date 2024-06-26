@@ -13,8 +13,8 @@ class TaekwondoScoreboard(ctk.CTk):
 
         self.blue_name = "Chung"
         self.red_name = "Hong"
-        self.init_combat_time = (0*60) + 5
-        self.init_rest_time = (0*60) + 3
+        self.init_combat_time = (0*60) + 30
+        self.init_rest_time = (0*60) + 10
         self.init_keyshi_time = (1*60) + 0
         self.gamjeom_limit = 6
         self.points_diff = 12
@@ -140,7 +140,7 @@ class TaekwondoScoreboard(ctk.CTk):
     
     def create_options_frame(self):
         # Entry para ejecutar comandos y modificar el marcador
-        self.command_entry = ctk.CTkEntry(master=self.options_frame, placeholder_text="Comandos")
+        self.command_entry = ctk.CTkEntry(master=self.options_frame, placeholder_text="Comandos", state="disabled")
         self.command_entry.grid(row=0, column=2, columnspan=3, sticky="nesw", padx=10, pady=10)
         self.command_entry.bind("<Return>", self.execute_command)    # Vincular la tecla Enter al Entry para ejecutar el comando
 
@@ -157,7 +157,7 @@ class TaekwondoScoreboard(ctk.CTk):
         self.btn_configuration.grid(row=1, column=0, sticky="nesw", padx=10, pady=10)
         self.btn_pause_resume = ctk.CTkButton(master=self.options_frame, text="Iniciar Combate", fg_color="#464646", command=self.toggle_timer, state="normal")
         self.btn_pause_resume.grid(row=1, column=1, sticky="nesw", padx=10, pady=10)
-        self.btn_edit_score = ctk.CTkButton(master=self.options_frame, text="Modificar Marcador", fg_color="#464646", command=self.edit_score, state="normal")
+        self.btn_edit_score = ctk.CTkButton(master=self.options_frame, text="Modificar Marcador", fg_color="#464646", command=self.open_edit_score_win, state="normal")
         self.btn_edit_score.grid(row=1, column=2, sticky="nesw", padx=10, pady=10)
         self.btn_keyshi = ctk.CTkButton(master=self.options_frame, text="Keyshi", fg_color="#464646", command=self.keyshi, state="disabled")
         self.btn_keyshi.grid(row=1, column=3, sticky="nesw", padx=10, pady=10)
@@ -179,6 +179,8 @@ class TaekwondoScoreboard(ctk.CTk):
     # Funciones de los botones
     # --------------------------------------------------------------------
     def execute_command(self, event=None):
+        command = self.command_entry.get().upper()
+
         self.command_entry.delete(0, ctk.END)
 
     def configuration(self):
@@ -251,6 +253,7 @@ class TaekwondoScoreboard(ctk.CTk):
             self.label_actions.configure(text="Combate!")
 
             # Habilitar o deshabilitar los botones correspondientes
+            self.command_entry.configure(state="disabled")
             self.btn_edit_score.configure(state="disabled")
             self.btn_keyshi.configure(state="normal")
             self.btn_finish_round.configure(state="normal")
@@ -267,13 +270,14 @@ class TaekwondoScoreboard(ctk.CTk):
             self.label_actions.configure(text="Pausa") 
 
             # Habilitar o deshabilitar los botones correspondientes
+            self.command_entry.configure(state="normal")
             self.btn_edit_score.configure(state="normal")
             self.btn_keyshi.configure(state="disabled")
             self.btn_finish_round.configure(state="normal")
             self.btn_finish_combat.configure(state="normal")
             self.btn_next_round.configure(state="disabled")
 
-    def edit_score(self):
+    def open_edit_score_win(self):
         # Crear ventana de configuración
         self.edit_score_window = ctk.CTkToplevel(self)
         self.edit_score_window.title("Modificar Marcador")
@@ -286,27 +290,49 @@ class TaekwondoScoreboard(ctk.CTk):
         # Creamos y colocamos las etiquetas y los campos de entrada
         label_new_time = ctk.CTkLabel(master=self.edit_score_window, text="Reloj: ")
         label_new_time.grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        self.new_time_entry = ctk.CTkEntry(master=self.edit_score_window)
+        self.new_time_entry.grid(row=0, column=1, padx=10, pady=10)
+        self.new_time_entry.insert(0, f"{self.combat_time//60}:{self.combat_time%60:02d}")
 
         label_new_blue_points = ctk.CTkLabel(master=self.edit_score_window, text="Puntos Azul: ")
         label_new_blue_points.grid(row=1, column=0, padx=10, pady=10, sticky="e")
+        self.new_blue_points_entry = ctk.CTkEntry(master=self.edit_score_window)
+        self.new_blue_points_entry.grid(row=1, column=1, padx=10, pady=10)
+        self.new_blue_points_entry.insert(0, self.blue_points)
 
         label_new_red_points = ctk.CTkLabel(master=self.edit_score_window, text="Puntos Rojos: ")
         label_new_red_points.grid(row=2, column=0, padx=10, pady=10, sticky="e")
+        self.new_red_points_entry = ctk.CTkEntry(master=self.edit_score_window)
+        self.new_red_points_entry.grid(row=2, column=1, padx=10, pady=10)
+        self.new_red_points_entry.insert(0, self.red_points)
 
         label_new_blue_gamjeons = ctk.CTkLabel(master=self.edit_score_window, text="Gamjeons Azul: ")
         label_new_blue_gamjeons.grid(row=3, column=0, padx=10, pady=10, sticky="e")
+        self.new_blue_gamjeons_entry = ctk.CTkEntry(master=self.edit_score_window)
+        self.new_blue_gamjeons_entry.grid(row=3, column=1, padx=10, pady=10)
+        self.new_blue_gamjeons_entry.insert(0, self.blue_gamjeoms)
 
         label_new_red_gamjeons = ctk.CTkLabel(master=self.edit_score_window, text="Gamjeons Rojo: ")
         label_new_red_gamjeons.grid(row=4, column=0, padx=10, pady=10, sticky="e")
+        self.new_red_gamjeons_entry = ctk.CTkEntry(master=self.edit_score_window)
+        self.new_red_gamjeons_entry.grid(row=4, column=1, padx=10, pady=10)
+        self.new_red_gamjeons_entry.insert(0, self.red_gamjeoms)
 
-        
+        # Crear y colocar botón de aplicar cambios
+        button_apply = ctk.CTkButton(master=self.edit_score_window, text="Aplicar", command=self.edit_score)
+        button_apply.grid(row=5, column=1, pady=20)
 
     def keyshi(self):
         return
+    
     def finish_round(self):
         self.combat_time = 0
+        self.run_combat_time = True
+        self.update_combat_timer()
+
     def finish_combat(self):
         return
+    
     def next_round(self):
         self.rest_time = 0
 
@@ -388,6 +414,29 @@ class TaekwondoScoreboard(ctk.CTk):
 
             # Cerrar ventana de configuración
             self.config_window.destroy()
+        except Exception as e:
+            print(e)
+    
+    def edit_score(self):
+        try:
+            # Obtener datos de la ventana de Modificar Marcador
+            new_min, new_seg = self.new_time_entry.get().split(":")
+            self.combat_time = int(new_min)*60 + int(new_seg)
+            self.blue_points = int(self.new_blue_points_entry.get())
+            self.red_points = int(self.new_red_points_entry.get())
+            self.blue_gamjeoms = int(self.new_blue_gamjeons_entry.get())
+            self.red_gamjeoms = int(self.new_red_gamjeons_entry.get())
+
+            # Actualizar las etiquetas
+            self.label_time.configure(text=f"{self.combat_time//60}:{self.combat_time%60:02d}")
+            self.blue_points_label.configure(text=self.blue_points)
+            self.red_points_label.configure(text=self.red_points)
+            self.blue_gamjeon_label.configure(text=self.blue_gamjeoms)
+            self.red_gamjeon_label.configure(text=self.red_gamjeoms)
+
+            # Cerramos la ventana
+            self.edit_score_window.destroy()
+
         except Exception as e:
             print(e)
     
