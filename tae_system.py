@@ -13,8 +13,8 @@ class TaekwondoScoreboard(ctk.CTk):
 
         self.blue_name = "Chung"
         self.red_name = "Hong"
-        self.init_combat_time = (0*60) + 30
-        self.init_rest_time = (0*60) + 10
+        self.init_combat_time = (0*60) + 5
+        self.init_rest_time = (0*60) + 3
         self.init_keyshi_time = (1*60) + 0
         self.gamjeom_limit = 6
         self.points_diff = 12
@@ -28,11 +28,19 @@ class TaekwondoScoreboard(ctk.CTk):
         self.blue_points = 0
         self.red_points = 0
 
+        self.blue_points_list = []
+        self.red_points_list = []
+
+        self.blue_won_rounds = 0
+        self.red_won_rounds = 0
+
         self.blue_gamjeoms = 0
         self.red_gamjeoms = 0
 
-        self.blue_points_by_round = [0,0,0]
-        self.red_points_by_round = [0,0,0]
+        self.finished_combat = False
+
+        #self.blue_points_by_round = [0,0,0]
+        #self.red_points_by_round = [0,0,0]
 
         self.create_widgets()
 
@@ -188,22 +196,29 @@ class TaekwondoScoreboard(ctk.CTk):
                 if value == "A+":
                     self.blue_gamjeoms += 1
                     self.red_points += 1
+                    self.red_points_list.append(1)
+
                 if value == "A-":
                     self.blue_gamjeoms -= 1
                     self.red_points -= 1
+                    
                 if value == "R+":
                     self.red_gamjeoms += 1
                     self.blue_points += 1
+                    self.blue_points_list.append(1)
+
                 if value == "R-":   
                     self.red_gamjeoms -= 1
                     self.blue_points -= 1
             else:
-                value = int(command[1:])
+                value = int(command[1:]) if int(command[1:]) <= 5 else 0
                 if command[0] == "A":
                     self.blue_points += value
+                    self.blue_points_list.append(value)
                     
                 if command[0] == "R":
                     self.red_points += value
+                    self.red_points_list.append(value)
                     
         except Exception as e:
             print(e)
@@ -219,6 +234,7 @@ class TaekwondoScoreboard(ctk.CTk):
             
             # Actualizamos las etiquetas
             self.update_labels()
+            self.get_winner_round()
 
     def configuration(self):
         # Crear ventana de configuración
@@ -277,10 +293,7 @@ class TaekwondoScoreboard(ctk.CTk):
         button_apply = ctk.CTkButton(master=self.config_window, text="Aplicar", command=self.apply_config)
         button_apply.grid(row=10, column=1, pady=20)
 
-    def toggle_timer(self):
-        # Deshabilitar el boton de configuracion una vez que empiece el combate
-        #self.btn_configuration.configure(state="disabled")
-        
+    def toggle_timer(self):        
         # Alternar el temporizador del combate
         self.run_combat_time = not self.run_combat_time
 
@@ -361,7 +374,17 @@ class TaekwondoScoreboard(ctk.CTk):
         self.update_combat_timer()
 
     def finish_combat(self):
-        return
+        self.finished_combat = False
+        self.blue_won_rounds = 0
+        self.red_won_rounds = 0
+        self.round = 1
+        self.blue_frame.configure(fg_color="blue")
+        self.red_frame.configure(fg_color="red")
+        self.reset_round_points()
+        self.update_labels()
+        self.btns_config_state(btn_config="normal", btn_pause_resume="normal" ,btn_edit_score="normal")
+        self.label_actions.configure(text="Esperando")
+
     
     def next_round(self):
         self.rest_time = 0
@@ -376,20 +399,27 @@ class TaekwondoScoreboard(ctk.CTk):
                 self.combat_time -= 1
                 self.after(1000, self.update_combat_timer)
             else:
+                self.get_winner_round(required_winner=True)
+                self.update_labels()
                 # 
                 self.run_combat_time = False
                 self.combat_time = self.init_combat_time
-                self.round += 1
 
                 # Habilitamos o deshabilitamos los botones correspondientes para el descanso
-                self.btn_pause_resume.configure(text="Iniciar Round")
                 self.btns_config_state(btn_next_round="normal")
 
                 # Modificamos una etiqueta para indicar que estamos en tiempo de descanso
                 self.label_actions.configure(text="Descanso")
+                self.btn_pause_resume.configure(text="Iniciar Round")
 
-                # Corremos el temporizador del descanso
-                self.update_rest_timer()
+                if self.finished_combat:
+                    self.label_actions.configure(text="Fin del combate")
+                    self.btns_config_state(btn_finish_combat="normal")
+                else:
+                    # Corremos el temporizador del descanso
+                    self.label_actions.configure(text="Descanso")
+                    self.update_rest_timer()
+
     
     def update_rest_timer(self):
         if self.rest_time > 0:
@@ -398,16 +428,20 @@ class TaekwondoScoreboard(ctk.CTk):
             self.rest_time -= 1
             self.after(1000, self.update_rest_timer)
         else:
+            # Reseteamos el tiempo de descanso
             self.rest_time = self.init_rest_time
 
+            # Resetamos los valores para reiniciar el round
+            self.reset_round_points()
+
             # Habilitamos o deshabilitamos los botones correspondientes para reiniciar el combate
-            self.btn_pause_resume.configure(text="Iniciar Round")
             self.btns_config_state(entry_command="normal", btn_pause_resume="normal", btn_edit_score="normal", btn_finish_round="normal", btn_finish_combat="normal")
 
             # Modificamos una etiqueta para indicar que estamos en tiempo de descanso
             self.label_actions.configure(text="Esperando")
+            self.btn_pause_resume.configure(text="Iniciar Round")
 
-            self.label_time.configure(text=f"{self.combat_time//60}:{(self.combat_time%60):02}")
+            self.update_labels()
 
     def apply_config(self):
         try:
@@ -454,8 +488,91 @@ class TaekwondoScoreboard(ctk.CTk):
         except Exception as e:
             print(e)
     
-    def func1(self):
-        return
+    def get_winner_round(self, required_winner=False):
+        if required_winner:
+            if self.blue_points == self.red_points:
+                # STK => Spinning Turning Kicks 
+                stk_blue = self.blue_points_list.count(4) + self.blue_points_list.count(5)
+                stk_red = self.red_points_list.count(4) + self.red_points_list.count(5)
+                
+                # HK => Head Kicks
+                hk_blue = self.blue_points_list.count(3)
+                hk_red = self.red_points_list.count(3)
+                
+                # TK => Trunk Kicks
+                tk_blue = self.blue_points_list.count(2)
+                tk_red = self.red_points_list.count(2)
+
+                # P => Punches
+                p_blue = self.blue_points_list.count(1) - self.blue_gamjeoms
+                p_red = self.red_points_list.count(1) - self.red_gamjeoms
+                
+                if stk_blue == stk_red:
+                    if hk_blue == hk_red:
+                        if tk_blue == tk_red:
+                            if p_blue == p_red:
+                                if self.blue_gamjeoms == self.red_gamjeoms:
+                                    print("Empate")
+                                    self.compare_points(self.blue_points, self.red_points)
+                                else:
+                                    self.compare_points(self.red_gamjeoms, self.blue_gamjeoms)
+                            else:
+                                self.compare_points(p_blue, p_red)
+                        else:
+                            self.compare_points(tk_blue, tk_red)
+                    else:
+                        self.compare_points(hk_blue, hk_red)
+                else:
+                    self.compare_points(stk_blue, stk_red)
+            else:
+                self.compare_points(self.blue_points, self.red_points)
+        else:
+            # Verificamos si un jugador ganó por superioridad de puntos
+            if abs(self.blue_points - self.red_points) > self.points_diff:
+                self.compare_points(self.blue_points, self.red_points)
+
+            # Verificamos si alguien sobrepasó el límite de gamjeons
+            elif max(self.blue_gamjeoms, self.red_gamjeoms) > self.gamjeom_limit:
+                self.compare_points(self.red_gamjeoms, self.blue_gamjeoms)
+
+            else:
+                print("Todavia no hay ganador")
+
+    def compare_points(self, points_blue, points_red):
+        if points_blue > points_red:
+            self.blue_name += "*" 
+            self.blue_won_rounds += 1
+            print("Ganador Azul")
+            
+        elif points_red > points_blue:
+            self.red_name += "*" 
+            self.red_won_rounds += 1
+            print("Ganador Rojo")
+
+        
+        if max(self.blue_won_rounds, self.red_won_rounds) == 2:
+            self.blue_name = self.blue_name[:len(self.blue_name)-self.blue_won_rounds]
+            self.red_name = self.red_name[:len(self.red_name)-self.red_won_rounds]
+            self.finished_combat = True
+        
+            if self.blue_won_rounds == 2:
+                self.red_frame.configure(fg_color="#2C2C2C")
+            if self.red_won_rounds == 2:
+                self.blue_frame.configure(fg_color="#2C2C2C")
+        
+        else:
+            self.round += 1
+
+    def reset_round_points(self):
+        self.blue_points = 0
+        self.red_points = 0
+
+        self.blue_gamjeoms = 0
+        self.red_gamjeoms = 0
+
+        self.blue_points_list.clear()
+        self.red_points_list.clear()
+
 
     def btns_config_state(self, btn_config="disabled", btn_pause_resume="disabled", btn_edit_score="disabled", btn_keyshi="disabled", btn_finish_round="disabled", btn_finish_combat="disabled", btn_next_round="disabled", entry_command="disabled"):
         self.command_entry.configure(state=entry_command)
@@ -471,6 +588,8 @@ class TaekwondoScoreboard(ctk.CTk):
         # Actualizar etiquetas de los temporizadores
         self.label_time.configure(text=f"{self.combat_time//60}:{self.combat_time%60:02d}")
         self.label_keyshi_time.configure(text=f"{self.init_keyshi_time//60}:{self.init_keyshi_time%60:02d}")
+
+        self.label_num_round.configure(text=f"R{self.round}")
 
         # Actualizamos los nombres de los jugadores
         self.blue_name_label.configure(text=self.blue_name)
