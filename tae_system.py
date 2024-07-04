@@ -1,4 +1,6 @@
 import customtkinter as ctk
+import serial
+import threading
 
 class TaekwondoScoreboard(ctk.CTk):
     APP_NAME = "Taekwondo System"
@@ -39,11 +41,40 @@ class TaekwondoScoreboard(ctk.CTk):
 
         self.finished_combat = False
 
+        # Configuración del puerto serial
+        self.ser = serial.Serial('COM3', 9600)  # Reemplaza 'COM3' con el puerto correcto
+        # Crear un hilo para leer los datos del puerto serial sin bloquear la interfaz
+        self.running = True  # Variable para controlar el bucle del hilo
+        thread = threading.Thread(target=self.read_serial)
+        thread.daemon = True
+        thread.start()
+
         #self.blue_points_by_round = [0,0,0]
         #self.red_points_by_round = [0,0,0]
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.create_widgets()
 
+    def read_serial(self):
+        while self.running:
+            if self.ser.in_waiting > 0:
+                data = self.ser.readline().decode('utf-8').strip()
+                if len(data) == 2 and (data[0] == 'A' or data[0] == 'R'):
+                    player = data[0]
+                    points = int(data[1])
+                    if player == 'A':
+                        self.blue_points += points
+                    else:
+                        self.red_points += points
+                    
+                    self.update_labels()
+                    self.get_winner_round()
+    
+    def on_closing(self):
+        self.running = False
+        self.ser.close()  # Cerrar el puerto serial
+        self.destroy()  # Cerrar la ventana
+                
     # Funciones para crear la interfaz y sus widgets
     # --------------------------------------------------------------------
     def create_widgets(self):
@@ -385,7 +416,6 @@ class TaekwondoScoreboard(ctk.CTk):
         self.btns_config_state(btn_config="normal", btn_pause_resume="normal" ,btn_edit_score="normal")
         self.label_actions.configure(text="Esperando")
 
-    
     def next_round(self):
         self.rest_time = 0
 
