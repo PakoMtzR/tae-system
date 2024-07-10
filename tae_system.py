@@ -1,8 +1,9 @@
 import customtkinter as ctk
+import pygame
 
 # Modificando la apariencia
-ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
-ctk.set_default_color_theme("dark-blue")  # Themes: "blue" (standard), "green", "dark-blue"
+ctk.set_appearance_mode("System")           # Modes: "System" (standard), "Dark", "Light"
+ctk.set_default_color_theme("dark-blue")    # Themes: "blue" (standard), "green", "dark-blue"
 
 class TaekwondoScoreboard(ctk.CTk):
     APP_NAME = "Taekwondo System"
@@ -18,6 +19,7 @@ class TaekwondoScoreboard(ctk.CTk):
     FG_COLOR_RED = "red"
     FG_COLOR_YELLOW = "yellow"
     FG_COLOR_GRAY = "#464646"
+    FG_COLOR_GRAY2 = "#212121"
 
     def __init__(self):
         super().__init__()
@@ -27,6 +29,16 @@ class TaekwondoScoreboard(ctk.CTk):
 
         self.initialize_variables()
         self.create_widgets()
+
+        self.bind("<space>", self.on_key_press)
+
+        # Inicializar pygame mixer y cargamos el sonido de la alarma
+        pygame.mixer.init()
+        pygame.mixer.music.load("alarm.wav")
+
+    def on_key_press(self, event):
+        if event.keysym == "space":
+            self.btn_pause_resume.invoke()
 
     def initialize_variables(self):
         self.blue_name = "Chung"
@@ -146,7 +158,7 @@ class TaekwondoScoreboard(ctk.CTk):
 
         # Creamos los botones
         self.btn_configuration  = self.create_button(parent=self.options_frame, text="Configuracion", row=1, column=0, command=self.configuration, fg_color=TaekwondoScoreboard.FG_COLOR_GRAY, state="normal")
-        self.btn_pause_resume   = self.create_button(parent=self.options_frame, text="Iniciar Combate", row=1, column=1, command=self.toggle_timer, fg_color=TaekwondoScoreboard.FG_COLOR_GRAY, state="normal")
+        self.btn_pause_resume   = self.create_button(parent=self.options_frame, text="Iniciar Combate [space]", row=1, column=1, command=self.toggle_timer, fg_color=TaekwondoScoreboard.FG_COLOR_GRAY, state="normal")
         self.btn_edit_score     = self.create_button(parent=self.options_frame, text="Modificar Marcador", row=1, column=2, command=self.open_edit_score_win, fg_color=TaekwondoScoreboard.FG_COLOR_GRAY, state="normal")
         self.btn_keyshi         = self.create_button(parent=self.options_frame, text="Keyshi", row=1, column=3, command=self.keyshi, fg_color=TaekwondoScoreboard.FG_COLOR_GRAY, state="disabled")
         self.btn_finish_round   = self.create_button(parent=self.options_frame, text="Finalizar Round", row=1, column=4, command=self.finish_round, fg_color=TaekwondoScoreboard.FG_COLOR_GRAY, state="disabled")
@@ -170,6 +182,7 @@ class TaekwondoScoreboard(ctk.CTk):
         # Deshabilitar redimensionamiento
         self.config_window.resizable(False, False)
 
+        # Configuramos la distribucion de la ventana
         self.config_window.columnconfigure(0, weight=1)
         self.config_window.columnconfigure(1, weight=1)
         for i in range(8):
@@ -218,6 +231,7 @@ class TaekwondoScoreboard(ctk.CTk):
         self.create_label(parent=self.edit_score_window, text="Gamjeons Azul:", row=3, column=0, sticky="e")
         self.create_label(parent=self.edit_score_window, text="Gamjeons Rojo:", row=4, column=0, sticky="e")
         
+        # Creamos y colocamos los entrys del formulario
         self.entry_new_time      = self.create_entry(parent=self.edit_score_window, row=0, column=1, text=f"{self.combat_time//60}:{self.combat_time%60:02d}")
         self.entry_blue_points   = self.create_entry(parent=self.edit_score_window, row=1, column=1, text=str(self.blue_points))
         self.entry_red_points    = self.create_entry(parent=self.edit_score_window, row=2, column=1, text=str(self.red_points))
@@ -275,13 +289,12 @@ class TaekwondoScoreboard(ctk.CTk):
     def toggle_timer(self):        
         self.run_combat_time = not self.run_combat_time
         if self.run_combat_time:
-            self.btn_pause_resume.configure(text="Pausar")
+            self.btn_pause_resume.configure(text="Pausar [space]")
             self.label_actions.configure(text="Combate!")
             self.btns_config_state(btn_pause_resume="normal", btn_keyshi="normal")
             self.run_timer()
-            # threading.Thread(target=self.run_timer, daemon=True).start()
         else:
-            self.btn_pause_resume.configure(text="Reanudar")      
+            self.btn_pause_resume.configure(text="Reanudar [space]")      
             self.label_actions.configure(text="Pausa") 
             self.btns_config_state(entry_command="normal", btn_pause_resume="normal", btn_edit_score="normal", btn_finish_round="normal", btn_finish_combat="normal")
 
@@ -289,13 +302,11 @@ class TaekwondoScoreboard(ctk.CTk):
         return
     
     def finish_round(self):
+        pygame.mixer.music.play()
         self.run_combat_time = False
         self.get_winner_round()
-        # self.combat_time = 0
-        # threading.Thread(target=self.run_timer).start()
 
     def finish_combat(self):
-        # self.finished_combat = False
         self.blue_name = self.blue_name[:len(self.blue_name)-self.blue_won_rounds]
         self.red_name = self.red_name[:len(self.red_name)-self.red_won_rounds]
         self.blue_won_rounds = 0
@@ -305,6 +316,8 @@ class TaekwondoScoreboard(ctk.CTk):
         self.update_labels()
         self.btns_config_state(btn_config="normal", btn_pause_resume="normal", btn_edit_score="normal")
         self.label_actions.configure(text="Esperando")
+        self.blue_frame.configure(fg_color=TaekwondoScoreboard.FG_COLOR_BLUE)
+        self.red_frame.configure(fg_color=TaekwondoScoreboard.FG_COLOR_RED)
 
     def next_round(self):
         self.rest_time = 0
@@ -348,7 +361,14 @@ class TaekwondoScoreboard(ctk.CTk):
             self.btns_config_state(btn_finish_combat="normal")
             self.label_actions.configure(text="FIN")
             print("Fin del Combate")
+            if self.blue_won_rounds > self.red_won_rounds:
+                self.label_blue_points.configure(text="W")
+                self.red_frame.configure(fg_color=TaekwondoScoreboard.FG_COLOR_GRAY2)
+            else:
+                self.label_red_points.configure(text="W")
+                self.blue_frame.configure(fg_color=TaekwondoScoreboard.FG_COLOR_GRAY2)
         else:
+            # pygame.mixer.music.play()
             print("Correr tiempo de descanso")
             self.label_actions.configure(text="Descanso")
             self.btns_config_state(btn_next_round="normal")
@@ -357,7 +377,7 @@ class TaekwondoScoreboard(ctk.CTk):
 
     def reset_new_round_values(self):
         self.label_actions.configure(text="Esperando")
-        self.btn_pause_resume.configure(text="Iniciar Round")
+        self.btn_pause_resume.configure(text="Iniciar Round [space]")
         self.btns_config_state(entry_command="normal", btn_pause_resume="normal", btn_edit_score="normal", btn_finish_round="normal", btn_finish_combat="normal")
         self.combat_time = self.init_combat_time
         self.round += 1
@@ -418,26 +438,24 @@ class TaekwondoScoreboard(ctk.CTk):
         self.btn_next_round.configure(state=btn_next_round)
 
     def update_labels(self):
-        # Actualizar etiquetas de los temporizadores
+        # Actualizamos las etiquetas del marcador
         self.label_time.configure(text=f"{self.combat_time//60}:{self.combat_time%60:02d}")
         self.label_keyshi_time.configure(text=f"{self.init_keyshi_time//60}:{self.init_keyshi_time%60:02d}")
 
         self.label_num_round.configure(text=f"R{self.round}")
 
-        # Actualizamos los nombres de los jugadores
         self.label_blue_name.configure(text=self.blue_name)
         self.label_red_name.configure(text=self.red_name)
 
-        # Actualizamos sus puntajes
         self.label_blue_points.configure(text=self.blue_points)
         self.label_red_points.configure(text=self.red_points)
 
-        # Actualizamos las amonestaciones
         self.label_blue_gamjeon.configure(text=self.blue_gamjeoms)
         self.label_red_gamjeon.configure(text=self.red_gamjeoms)
         return
 
     def parse_time(self, time_str):
+        # Funcion para transformar el formato mm:ss a seg [Ejem]: "1:30" => 90seg
         minutes, seconds = map(int, time_str.split(":"))
         return minutes * 60 + seconds
     
