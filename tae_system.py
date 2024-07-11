@@ -1,5 +1,7 @@
 import customtkinter as ctk
 import pygame
+import serial
+import threading
 
 # Modificando la apariencia
 ctk.set_appearance_mode("System")           # Modes: "System" (standard), "Dark", "Light"
@@ -26,6 +28,7 @@ class TaekwondoScoreboard(ctk.CTk):
         self.title(TaekwondoScoreboard.APP_NAME)
         self.geometry(str(TaekwondoScoreboard.WIDTH) + "x" + str(TaekwondoScoreboard.HEIGHT))
         self.minsize(TaekwondoScoreboard.WIDTH, TaekwondoScoreboard.HEIGHT)
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.initialize_variables()
         self.create_widgets()
@@ -36,6 +39,33 @@ class TaekwondoScoreboard(ctk.CTk):
         pygame.mixer.init()
         pygame.mixer.music.load("alarm.wav")
 
+        # Configuracion del puerto Serial
+        self.esp32_serial = serial.Serial('COM3', 9600)
+        self.running = True
+        threading.Thread(target=self.read_serial, daemon=True).start()
+
+    def read_serial(self):
+        while self.running:
+            if (self.esp32_serial.in_waiting > 0):
+                data = self.esp32_serial.readline().decode('utf-8').strip()
+                if len(data) == 2 and (data[0] == 'A' or data[0] == 'R'):
+                    player = data[0]
+                    points = int(data[1])
+                    if player == 'A':
+                        self.blue_points += points
+                    else:
+                        self.red_points += points
+                    
+                    self.update_labels()
+                    
+                    if abs(self.blue_points - self.red_points) >= self.points_diff:
+                        self.finish_round() 
+    
+    def on_closing(self):
+        self.running = False
+        self.esp32_serial.close()   # Cerrar el puerto serial
+        self.destroy()              # Cerrar la ventana
+
     def on_key_press(self, event):
         if event.keysym == "space":
             self.btn_pause_resume.invoke()
@@ -43,8 +73,8 @@ class TaekwondoScoreboard(ctk.CTk):
     def initialize_variables(self):
         self.blue_name = "Chung"
         self.red_name = "Hong"
-        self.init_combat_time = 5
-        self.init_rest_time = 3
+        self.init_combat_time = 60
+        self.init_rest_time = 10
         self.init_keyshi_time = 60
         self.gamjeom_limit = 6
         self.points_diff = 12
