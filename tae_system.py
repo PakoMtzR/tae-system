@@ -1,7 +1,6 @@
 import customtkinter as ctk
 import pygame
-import serial
-import threading
+from collections import defaultdict
 
 # Modificando la apariencia
 ctk.set_appearance_mode("System")           # Modes: "System" (standard), "Dark", "Light"
@@ -36,35 +35,51 @@ class TaekwondoScoreboard(ctk.CTk):
         self.bind("<space>", self.on_key_press)
 
         # Inicializar pygame mixer y cargamos el sonido de la alarma
-        pygame.mixer.init()
-        pygame.mixer.music.load("alarm.wav")
+        pygame.init()
+        #pygame.mixer.init()
+        #pygame.mixer.music.load("alarm.wav")
+        self.alarm = pygame.mixer.Sound("alarm.wav")
+        pygame.joystick.init()
+        self.joystick = pygame.joystick.Joystick(0)
+        self.joystick.init()
 
-        # Configuracion del puerto Serial
-        self.esp32_serial = serial.Serial('COM3', 9600)
-        self.running = True
-        threading.Thread(target=self.read_serial, daemon=True).start()
+        self.blue_points_controller = defaultdict(int, {
+            0: 2,
+            1: 3,
+            2: 4,
+            3: 5,
+            10: 1
+        })
 
-    def read_serial(self):
-        while self.running:
-            if (self.esp32_serial.in_waiting > 0):
-                data = self.esp32_serial.readline().decode('utf-8').strip()
-                if len(data) == 2 and (data[0] == 'A' or data[0] == 'R'):
-                    player = data[0]
-                    points = int(data[1])
-                    if player == 'A':
-                        self.blue_points += points
-                    else:
-                        self.red_points += points
-                    
+        self.red_points_controller = defaultdict(int, {
+            12: 2,
+            14: 3,
+            13: 4,
+            11: 5,
+            9: 1
+        })
+        # Configurar la escucha del control en un hilo separado
+        self.after(100, self.listen_to_joystick)
+
+    def listen_to_joystick(self):
+        # Escuchar eventos del control de 
+        for event in pygame.event.get():
+            if event.type == pygame.JOYBUTTONDOWN:
+                # print(f"Botón {event.button} presionado.") 
+                if self.run_combat_time:
+                    self.blue_points += self.blue_points_controller[event.button]
+                    self.red_points += self.red_points_controller[event.button]
                     self.update_labels()
                     
                     if abs(self.blue_points - self.red_points) >= self.points_diff:
                         self.finish_round() 
+
+        # Llamar nuevamente a la función después de un pequeño retraso
+        self.after(100, self.listen_to_joystick)
     
     def on_closing(self):
-        self.running = False
-        self.esp32_serial.close()   # Cerrar el puerto serial
-        self.destroy()              # Cerrar la ventana
+        pygame.quit()
+        self.destroy()  # Cerrar la ventana
 
     def on_key_press(self, event):
         if event.keysym == "space":
@@ -332,7 +347,8 @@ class TaekwondoScoreboard(ctk.CTk):
         return
     
     def finish_round(self):
-        pygame.mixer.music.play()
+        # pygame.mixer.music.play()
+        self.alarm.play()
         self.run_combat_time = False
         self.get_winner_round()
 
@@ -371,6 +387,7 @@ class TaekwondoScoreboard(ctk.CTk):
             self.rest_time -= 1
             self.after(1000, self.run_rest_timer)
         else:
+            self.alarm.play()
             self.reset_new_round_values()
         
     def get_winner_round(self):
